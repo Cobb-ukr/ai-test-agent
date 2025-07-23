@@ -1,0 +1,20 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+.env/
+
+# Reports
+*.pdf
+
+# Logs or test output
+*.log
+
+# OS and IDE-specific files
+.DS_Store
+*.swp
+.idea/
+.vscode/
