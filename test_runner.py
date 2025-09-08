@@ -1,5 +1,3 @@
-# test_runner.py
-
 import os
 import sys
 import tempfile
@@ -23,6 +21,24 @@ def clean_llm_code(text: str) -> str:
     text = re.sub(r"```", "", text)
     return text.strip()
 
+
+def extract_llm_output(response_json: dict) -> str:
+    """
+    Extracts the model's text content from a Groq/OpenAI-style response JSON.
+    Handles both 'message' and 'text' formats, and raises errors gracefully.
+    """
+    if "choices" in response_json:
+        choice = response_json["choices"][0]
+        if "message" in choice and "content" in choice["message"]:
+            return choice["message"]["content"]
+        elif "text" in choice:  # Some models use 'text' instead
+            return choice["text"]
+        else:
+            raise ValueError(f"Unexpected response format in choices: {response_json}")
+    elif "error" in response_json:
+        raise RuntimeError(f"API error: {response_json['error']}")
+    else:
+        raise ValueError(f"Invalid response: {response_json}")
 
 
 def run_test_generation(user_code: str, func_name: str = "is_prime") -> dict:
@@ -51,28 +67,31 @@ def run_test_generation(user_code: str, func_name: str = "is_prime") -> dict:
     {user_code}
     """
 
-
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
 
     data = {
-        "model": "llama3-70b-8192",
+        "model": "llama-3.1-8b-instant",
         "messages": [{"role": "user", "content": prompt}]
     }
 
     # Send request to Groq
-    response = requests.post("https://api.groq.com/openai/v1/chat/completions", json=data, headers=headers)
+    response = requests.post("https://api.groq.com/openai/v1/chat/completions",
+                             json=data, headers=headers)
     response_json = response.json()
 
-    #  FIX: Safely access model response
-    raw_llm_output = response_json["choices"][0]["message"]["content"]
+    # Debug log: see raw API response
+    print("DEBUG: response_json =", response_json)
 
-    #  Clean unwanted markdown
+    # Safely extract model output
+    raw_llm_output = extract_llm_output(response_json)
+
+    # Clean unwanted markdown
     cleaned_test_code_body = clean_llm_code(raw_llm_output)
 
-    #  Prepend import to guarantee test file correctness
+    # Prepend import to guarantee test file correctness
     full_test_code = f"from {user_code_module_name} import {func_name}\n\n{cleaned_test_code_body}"
 
     # Use a temp directory to safely isolate
@@ -98,7 +117,7 @@ def run_test_generation(user_code: str, func_name: str = "is_prime") -> dict:
 
         test_output = result.stdout
 
-        # Extract summary
+        # Extract summary lines
         summary_lines = [
             line for line in test_output.splitlines()
             if "passed" in line or "failed" in line or "error" in line
@@ -112,6 +131,7 @@ def run_test_generation(user_code: str, func_name: str = "is_prime") -> dict:
         "summary": summary
     }
 
+
 # For standalone debugging -> run this file in terminal
 if __name__ == "__main__":
     sample_function = '''
@@ -124,10 +144,13 @@ def is_prime(n):
     return True
 '''
 
-    result = run_test_generation(sample_function)
-    print("✅ Generated PyTest Code:\n")
-    print(result["generated_tests"])
-    print("\n📊 Test Summary:\n")
-    print(result["summary"])
-    print("\n🧪 Full PyTest Output:\n")
-    print(result["test_output"])
+    try:
+        result = run_test_generation(sample_function)
+        print("✅ Generated PyTest Code:\n")
+        print(result["generated_tests"])
+        print("\n📊 Test Summary:\n")
+        print(result["summary"])
+        print("\n🧪 Full PyTest Output:\n")
+        print(result["test_output"])
+    except Exception as e:
+        print("❌ Error during test generation:", str(e))
