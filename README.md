@@ -137,7 +137,7 @@ test_code.py ... [100%]
 3 passed in 0.02s
 ```
 
-## Planned Enhancements
+## Planned Enhancements ()
 
 - Multi-language support (JavaScript, Java, etc.)
 - Integration with other AI test case platforms (e.g., testRigor, Workik)
@@ -145,6 +145,4 @@ test_code.py ... [100%]
 - Zip test run folders into bundles for download
 - Auto-detect tested function name
 
-## License
 
-MIT License © 2025 - Your Name or Organization
